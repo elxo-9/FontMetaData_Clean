@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Font Metadata Cleaner</title>
     <script src="https://cdn.jsdelivr.net/npm/opentype.js@1.3.4/dist/opentype.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
     <style>
         body {
             font-family: 'Helvetica Neue', Arial, sans-serif;
@@ -16,7 +17,7 @@
             justify-content: center;
         }
         .container {
-            max-width: 600px;
+            max-width: 650px;
             width: 100%;
             background: #fff;
             padding: 30px;
@@ -43,6 +44,7 @@
             cursor: pointer;
             background-color: #f0f8ff;
             transition: background-color 0.2s, border-color 0.2s;
+            margin-bottom: 25px;
         }
         .drop-zone:hover, .drop-zone.dragover {
             background-color: #e1f0fa;
@@ -63,8 +65,34 @@
         #file-input {
             display: none;
         }
+        /* ダウンロードエリアのスタイル */
+        .download-action-area {
+            margin: 20px 0;
+            text-align: center;
+            display: none;
+        }
+        .download-btn {
+            background-color: #2ecc71;
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            font-size: 16px;
+            font-weight: bold;
+            border-radius: 6px;
+            cursor: pointer;
+            box-shadow: 0 4px 6px rgba(46, 204, 113, 0.2);
+            transition: background-color 0.2s, transform 0.1s;
+        }
+        .download-btn:hover {
+            background-color: #27ae60;
+        }
+        .download-btn:active {
+            transform: scale(0.98);
+        }
         .status-area {
-            margin-top: 25px;
+            margin-top: 20px;
+            max-height: 250px;
+            overflow-y: auto;
         }
         .log-msg {
             padding: 12px;
@@ -95,12 +123,16 @@
 
 <div class="container">
     <h1>Font Metadata Cleaner</h1>
-    <p class="desc">名前をそのまま残して、著作権情報やメーカーなどのメタデータだけを削除します。</p>
+    <p class="desc">名前をそのまま残して、著作権情報やメーカーなどのメタデータだけを削除し、一括ZIP出力します。</p>
 
     <div class="drop-zone" id="drop-zone">
-        <p>フォントファイルをドロップするか、ここをクリック</p>
+        <p>複数のフォントファイルをドロップするか、ここをクリック</p>
         <span>対応フォーマット: .ttf / .otf</span>
         <input type="file" id="file-input" accept=".ttf,.otf" multiple>
+    </div>
+
+    <div class="download-action-area" id="download-action-area">
+        <button class="download-btn" id="download-btn">📦 ZIPを再ダウンロードする</button>
     </div>
 
     <div class="status-area" id="status-area"></div>
@@ -110,11 +142,16 @@
     const dropZone = document.getElementById('drop-zone');
     const fileInput = document.getElementById('file-input');
     const statusArea = document.getElementById('status-area');
+    const downloadActionArea = document.getElementById('download-action-area');
+    const downloadBtn = document.getElementById('download-btn');
 
     // 削除したいメタデータのName IDリスト
     const DELETE_IDS = [0, 3, 5, 7, 8, 9, 10, 11, 12, 13, 14];
+    const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 
-    // ドラッグ＆ドロップのイベント制御
+    let currentZipUrl = null;
+    let currentZipName = "";
+
     ['dragenter', 'dragover'].forEach(eventName => {
         dropZone.addEventListener(eventName, (e) => {
             e.preventDefault();
@@ -134,87 +171,123 @@
     fileInput.addEventListener('change', (e) => handleFiles(e.target.files));
     dropZone.addEventListener('drop', (e) => handleFiles(e.dataTransfer.files));
 
-    // ファイル処理のメイン
-    function handleFiles(files) {
+    // 再ダウンロードボタンの処理
+    downloadBtn.addEventListener('click', () => {
+        if (currentZipUrl) {
+            const a = document.createElement('a');
+            a.href = currentZipUrl;
+            a.download = currentZipName;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+        }
+    });
+
+    async function handleFiles(files) {
         if (files.length === 0) return;
-        statusArea.innerHTML = ''; // 前のログをクリア
+        
+        if (currentZipUrl) {
+            URL.revokeObjectURL(currentZipUrl);
+            currentZipUrl = null;
+        }
+        downloadActionArea.style.display = 'none';
+        statusArea.innerHTML = ''; 
 
-        Array.from(files).forEach(file => {
-            // 各ファイルごとに一意のIDを作って、進捗ログを作成するヨ
-            const logId = 'log-' + Math.random().toString(36).substr(2, 9);
-            showLog(`⏳ ${file.name} を処理中... お待ちください...`, 'processing', logId);
+        const zip = new JSZip();
+        let successCount = 0;
 
-            const reader = new FileReader();
+        const mainLogId = 'main-log';
+        showLog(`⏳ 合計 ${files.length} 個のフォントのクリーニングを開始するヨ...`, 'processing', mainLogId);
+        await sleep(300);
+
+        for (const file of Array.from(files)) {
+            const subLogId = 'log-' + Math.random().toString(36).substr(2, 9);
             
-            reader.onload = function(e) {
-                try {
-                    const arrayBuffer = e.target.result;
-                    // opentype.jsでフォントをパース
-                    const font = opentype.parse(arrayBuffer);
-                    
-                    // 1. nameテーブル（メタデータ）の削除処理
-                    if (font.names) {
-                        for (const key in font.names) {
-                            if (DELETE_IDS.includes(Number(key))) {
-                                font.names[key] = { en: '' }; 
-                            }
+            // ハッキリ「処理中」を表示させるヨ
+            showLog(`⏳ ${file.name} を処理中... メタデータを削除しています...`, 'processing', subLogId);
+            await sleep(250); // 画面に「処理中」を認知させるためのウェイト
+
+            try {
+                const arrayBuffer = await readFileAsArrayBuffer(file);
+                const font = opentype.parse(arrayBuffer);
+
+                // 1. nameテーブル（メタデータ）の削除処理
+                if (font.names) {
+                    for (const key in font.names) {
+                        if (DELETE_IDS.includes(Number(key))) {
+                            font.names[key] = { en: '' }; 
                         }
                     }
-
-                    // 2. headテーブルのタイムスタンプ初期化
-                    if (font.tables && font.tables.head) {
-                        font.tables.head.created = 0;
-                        font.tables.head.modified = 0;
-                    }
-
-                    // 元のファイル名から出力用の名前を生成
-                    const lastDot = file.name.lastIndexOf('.');
-                    const name = file.name.substring(0, lastDot);
-                    const ext = file.name.substring(lastDot);
-                    const outputName = `${name}_name_kept${ext}`;
-
-                    // 改変したフォントをバイナリに変換してダウンロード
-                    const fontBuffer = font.toArrayBuffer();
-                    downloadBlob(fontBuffer, outputName, file.type || 'font/ttf');
-
-                    // 「処理中」のログを「成功」に書き換えるヨ！
-                    updateLog(logId, `✅ 成功: <strong>${file.name}</strong> の名前を維持したまま、著作権情報を削除しました。`, 'success');
-
-                } catch (err) {
-                    // エラーが出たらエラー表示に変えるヨ
-                    updateLog(logId, `❌ エラー (${file.name}): ${err.message}`, 'error');
-                    console.error(err);
                 }
-            };
 
-            // 読み込みが開始されるタイミングを少し明確にするためにreadをキック
+                // 2. headテーブルのタイムスタンプ初期化
+                if (font.tables && font.tables.head) {
+                    font.tables.head.created = 0;
+                    font.tables.head.modified = 0;
+                }
+
+                const lastDot = file.name.lastIndexOf('.');
+                const baseName = file.name.substring(0, lastDot);
+                const ext = file.name.substring(lastDot);
+                const outputFilename = `${baseName}_name_kept${ext}`;
+
+                const fontBuffer = font.toArrayBuffer();
+                zip.file(outputFilename, fontBuffer);
+
+                updateLog(subLogId, `✅ 成功: ${file.name} の著作権情報を削除したヨ。`, 'success');
+                successCount++;
+                await sleep(100);
+
+            } catch (err) {
+                updateLog(subLogId, `❌ エラー (${file.name}): ${err.message}`, 'error');
+                console.error(err);
+            }
+        }
+
+        if (successCount > 0) {
+            updateLog(mainLogId, `📦 クリーニング済みフォントのZIPファイルを生成しているヨ...`, 'processing');
+            await sleep(300);
+            
+            const timestamp = Math.floor(Date.now() / 1000);
+            const zipBlob = await zip.generateAsync({ type: 'blob' });
+            
+            currentZipUrl = URL.createObjectURL(zipBlob);
+            currentZipName = `fonts_cleaned_${timestamp}.zip`;
+            
+            const a = document.createElement('a');
+            a.href = currentZipUrl;
+            a.download = currentZipName;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+
+            // 再ダウンロードボタンを表示するヨ
+            downloadActionArea.style.display = 'block';
+
+            updateLog(mainLogId, `🎉 完了！自動ダウンロードをキャンセルした場合は、上のボタンから再取得してネ！`, 'success');
+        } else {
+            updateLog(mainLogId, `❌ 正常に処理できたフォントがなかったヨ。`, 'error');
+        }
+    }
+
+    function readFileAsArrayBuffer(file) {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = (e) => resolve(e.target.result);
+            reader.onerror = (e) => reject(new Error("ファイルの読み込みに失敗しました"));
             reader.readAsArrayBuffer(file);
         });
     }
 
-    // ダウンロードを実行する関数
-    function downloadBlob(buffer, filename, mimeType) {
-        const blob = new Blob([buffer], { type: mimeType });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = filename;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-    }
-
-    // 最初にログ枠を作る関数
     function showLog(message, type, id) {
         const div = document.createElement('div');
         div.id = id;
         div.className = `log-msg ${type}`;
         div.innerHTML = message;
         statusArea.appendChild(div);
+        statusArea.scrollTop = statusArea.scrollHeight;
     }
 
-    // ログの内容を途中で書き換える関数
     function updateLog(id, message, type) {
         const div = document.getElementById(id);
         if (div) {
