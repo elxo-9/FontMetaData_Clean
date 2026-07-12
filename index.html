@@ -73,6 +73,12 @@
             margin-bottom: 10px;
             line-height: 1.4;
         }
+        .log-msg.processing {
+            background-color: #ebf5fb;
+            color: #2980b9;
+            border: 1px solid #a9cce3;
+            font-weight: bold;
+        }
         .log-msg.success {
             background-color: #e8f8f5;
             color: #27ae60;
@@ -106,7 +112,6 @@
     const statusArea = document.getElementById('status-area');
 
     // 削除したいメタデータのName IDリスト
-    // (0:Copyright, 3:Unique ID, 5:Version, 7:Trademark, 8:Manufacturer, 9:Designer, 10:Description, 11:Vendor URL, 12:Designer URL, 13:License, 14:License URL)
     const DELETE_IDS = [0, 3, 5, 7, 8, 9, 10, 11, 12, 13, 14];
 
     // ドラッグ＆ドロップのイベント制御
@@ -132,9 +137,13 @@
     // ファイル処理のメイン
     function handleFiles(files) {
         if (files.length === 0) return;
-        statusArea.innerHTML = ''; // ログをクリア
+        statusArea.innerHTML = ''; // 前のログをクリア
 
         Array.from(files).forEach(file => {
+            // 各ファイルごとに一意のIDを作って、進捗ログを作成するヨ
+            const logId = 'log-' + Math.random().toString(36).substr(2, 9);
+            showLog(`⏳ ${file.name} を処理中... お待ちください...`, 'processing', logId);
+
             const reader = new FileReader();
             
             reader.onload = function(e) {
@@ -147,15 +156,12 @@
                     if (font.names) {
                         for (const key in font.names) {
                             if (DELETE_IDS.includes(Number(key))) {
-                                // 削除対象のIDに該当するレコードを空にする
                                 font.names[key] = { en: '' }; 
                             }
                         }
                     }
 
-                    // 2. headテーブルのタイムスタンプ初期化 (opentype.jsの内部データ構造に対応)
-                    // 完全にバイナリレベルで0にするのはライブラリ制約があるため、
-                    // 出力時に不整合が出ないよう最低限の安全なプロパティを調整
+                    // 2. headテーブルのタイムスタンプ初期化
                     if (font.tables && font.tables.head) {
                         font.tables.head.created = 0;
                         font.tables.head.modified = 0;
@@ -164,21 +170,24 @@
                     // 元のファイル名から出力用の名前を生成
                     const lastDot = file.name.lastIndexOf('.');
                     const name = file.name.substring(0, lastDot);
-                    const ext = file.name.substring(lastDot); // .ttf か .otf を保持
+                    const ext = file.name.substring(lastDot);
                     const outputName = `${name}_name_kept${ext}`;
 
-                    // 改変したフォントをバイナリ（ArrayBuffer）に変換してダウンロード
+                    // 改変したフォントをバイナリに変換してダウンロード
                     const fontBuffer = font.toArrayBuffer();
                     downloadBlob(fontBuffer, outputName, file.type || 'font/ttf');
 
-                    showLog(`成功: <strong>${file.name}</strong> の名前を維持したまま、著作権情報を削除しました。`, 'success');
+                    // 「処理中」のログを「成功」に書き換えるヨ！
+                    updateLog(logId, `✅ 成功: <strong>${file.name}</strong> の名前を維持したまま、著作権情報を削除しました。`, 'success');
 
                 } catch (err) {
-                    showLog(`エラー (${file.name}): ${err.message}`, 'error');
+                    // エラーが出たらエラー表示に変えるヨ
+                    updateLog(logId, `❌ エラー (${file.name}): ${err.message}`, 'error');
                     console.error(err);
                 }
             };
 
+            // 読み込みが開始されるタイミングを少し明確にするためにreadをキック
             reader.readAsArrayBuffer(file);
         });
     }
@@ -196,12 +205,22 @@
         URL.revokeObjectURL(url);
     }
 
-    // 画面にログを表示する関数
-    function showLog(message, type) {
+    // 最初にログ枠を作る関数
+    function showLog(message, type, id) {
         const div = document.createElement('div');
+        div.id = id;
         div.className = `log-msg ${type}`;
         div.innerHTML = message;
         statusArea.appendChild(div);
+    }
+
+    // ログの内容を途中で書き換える関数
+    function updateLog(id, message, type) {
+        const div = document.getElementById(id);
+        if (div) {
+            div.className = `log-msg ${type}`;
+            div.innerHTML = message;
+        }
     }
 </script>
 
