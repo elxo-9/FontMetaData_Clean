@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Font Metadata Cleaner</title>
+    <script src="https://cdn.jsdelivr.net/npm/opentype.js@1.3.4/dist/opentype.min.js"></script>
+    <style>
+        body {
+            font-family: 'Helvetica Neue', Arial, sans-serif;
+            background-color: #f5f7fa;
+            color: #333;
+            margin: 0;
+            padding: 40px 20px;
+            display: flex;
+            justify-content: center;
+        }
+        .container {
+            max-width: 600px;
+            width: 100%;
+            background: #fff;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+        }
+        h1 {
+            font-size: 24px;
+            margin-bottom: 10px;
+            text-align: center;
+            color: #2c3e50;
+        }
+        p.desc {
+            font-size: 14px;
+            color: #7f8c8d;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .drop-zone {
+            border: 2px dashed #3498db;
+            border-radius: 8px;
+            padding: 40px 20px;
+            text-align: center;
+            cursor: pointer;
+            background-color: #f0f8ff;
+            transition: background-color 0.2s, border-color 0.2s;
+        }
+        .drop-zone:hover, .drop-zone.dragover {
+            background-color: #e1f0fa;
+            border-color: #2980b9;
+        }
+        .drop-zone p {
+            margin: 0;
+            font-size: 16px;
+            color: #34495e;
+            font-weight: bold;
+        }
+        .drop-zone span {
+            display: block;
+            font-size: 12px;
+            color: #95a5a6;
+            margin-top: 8px;
+        }
+        #file-input {
+            display: none;
+        }
+        .status-area {
+            margin-top: 25px;
+        }
+        .log-msg {
+            padding: 12px;
+            border-radius: 6px;
+            font-size: 14px;
+            margin-bottom: 10px;
+            line-height: 1.4;
+        }
+        .log-msg.success {
+            background-color: #e8f8f5;
+            color: #27ae60;
+            border: 1px solid #a3e4d7;
+        }
+        .log-msg.error {
+            background-color: #fdebd0;
+            color: #e67e22;
+            border: 1px solid #fadbd8;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>Font Metadata Cleaner</h1>
+    <p class="desc">名前をそのまま残して、著作権情報やメーカーなどのメタデータだけを削除します。</p>
+
+    <div class="drop-zone" id="drop-zone">
+        <p>フォントファイルをドロップするか、ここをクリック</p>
+        <span>対応フォーマット: .ttf / .otf</span>
+        <input type="file" id="file-input" accept=".ttf,.otf" multiple>
+    </div>
+
+    <div class="status-area" id="status-area"></div>
+</div>
+
+<script>
+    const dropZone = document.getElementById('drop-zone');
+    const fileInput = document.getElementById('file-input');
+    const statusArea = document.getElementById('status-area');
+
+    // 削除したいメタデータのName IDリスト
+    // (0:Copyright, 3:Unique ID, 5:Version, 7:Trademark, 8:Manufacturer, 9:Designer, 10:Description, 11:Vendor URL, 12:Designer URL, 13:License, 14:License URL)
+    const DELETE_IDS = [0, 3, 5, 7, 8, 9, 10, 11, 12, 13, 14];
+
+    // ドラッグ＆ドロップのイベント制御
+    ['dragenter', 'dragover'].forEach(eventName => {
+        dropZone.addEventListener(eventName, (e) => {
+            e.preventDefault();
+            dropZone.classList.add('dragover');
+        }, false);
+    });
+
+    ['dragleave', 'drop'].forEach(eventName => {
+        dropZone.addEventListener(eventName, (e) => {
+            e.preventDefault();
+            dropZone.classList.remove('dragover');
+        }, false);
+    });
+
+    dropZone.addEventListener('click', () => fileInput.click());
+    
+    fileInput.addEventListener('change', (e) => handleFiles(e.target.files));
+    dropZone.addEventListener('drop', (e) => handleFiles(e.dataTransfer.files));
+
+    // ファイル処理のメイン
+    function handleFiles(files) {
+        if (files.length === 0) return;
+        statusArea.innerHTML = ''; // ログをクリア
+
+        Array.from(files).forEach(file => {
+            const reader = new FileReader();
+            
+            reader.onload = function(e) {
+                try {
+                    const arrayBuffer = e.target.result;
+                    // opentype.jsでフォントをパース
+                    const font = opentype.parse(arrayBuffer);
+                    
+                    // 1. nameテーブル（メタデータ）の削除処理
+                    if (font.names) {
+                        for (const key in font.names) {
+                            if (DELETE_IDS.includes(Number(key))) {
+                                // 削除対象のIDに該当するレコードを空にする
+                                font.names[key] = { en: '' }; 
+                            }
+                        }
+                    }
+
+                    // 2. headテーブルのタイムスタンプ初期化 (opentype.jsの内部データ構造に対応)
+                    // 完全にバイナリレベルで0にするのはライブラリ制約があるため、
+                    // 出力時に不整合が出ないよう最低限の安全なプロパティを調整
+                    if (font.tables && font.tables.head) {
+                        font.tables.head.created = 0;
+                        font.tables.head.modified = 0;
+                    }
+
+                    // 元のファイル名から出力用の名前を生成
+                    const lastDot = file.name.lastIndexOf('.');
+                    const name = file.name.substring(0, lastDot);
+                    const ext = file.name.substring(lastDot); // .ttf か .otf を保持
+                    const outputName = `${name}_name_kept${ext}`;
+
+                    // 改変したフォントをバイナリ（ArrayBuffer）に変換してダウンロード
+                    const fontBuffer = font.toArrayBuffer();
+                    downloadBlob(fontBuffer, outputName, file.type || 'font/ttf');
+
+                    showLog(`成功: <strong>${file.name}</strong> の名前を維持したまま、著作権情報を削除しました。`, 'success');
+
+                } catch (err) {
+                    showLog(`エラー (${file.name}): ${err.message}`, 'error');
+                    console.error(err);
+                }
+            };
+
+            reader.readAsArrayBuffer(file);
+        });
+    }
+
+    // ダウンロードを実行する関数
+    function downloadBlob(buffer, filename, mimeType) {
+        const blob = new Blob([buffer], { type: mimeType });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+    }
+
+    // 画面にログを表示する関数
+    function showLog(message, type) {
+        const div = document.createElement('div');
+        div.className = `log-msg ${type}`;
+        div.innerHTML = message;
+        statusArea.appendChild(div);
+    }
+</script>
+
+</body>
+</html>
