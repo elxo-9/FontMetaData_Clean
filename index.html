@@ -117,6 +117,39 @@
             color: #e67e22;
             border: 1px solid #fadbd8;
         }
+
+        /* 全体のローディング表示 */
+        .loading-overlay {
+            position: fixed;
+            inset: 0;
+            z-index: 9999;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+            gap: 16px;
+            background: rgba(245, 247, 250, 0.82);
+            backdrop-filter: blur(4px);
+        }
+        .loading-spinner {
+            width: 48px;
+            height: 48px;
+            border: 5px solid #dce6ef;
+            border-top-color: #3498db;
+            border-radius: 50%;
+            animation: loading-spin 0.8s linear infinite;
+        }
+        .loading-message {
+            color: #2c3e50;
+            font-size: 15px;
+            font-weight: bold;
+        }
+        @keyframes loading-spin {
+            to { transform: rotate(360deg); }
+        }
+        @media (prefers-reduced-motion: reduce) {
+            .loading-spinner { animation-duration: 1.8s; }
+        }
     </style>
 </head>
 <body>
@@ -138,12 +171,19 @@
     <div class="status-area" id="status-area"></div>
 </div>
 
+<div class="loading-overlay" id="loading-overlay" role="status" aria-live="polite" aria-label="処理中">
+    <div class="loading-spinner" aria-hidden="true"></div>
+    <div class="loading-message" id="loading-message">フォントを処理中...</div>
+</div>
+
 <script>
     const dropZone = document.getElementById('drop-zone');
     const fileInput = document.getElementById('file-input');
     const statusArea = document.getElementById('status-area');
     const downloadActionArea = document.getElementById('download-action-area');
     const downloadBtn = document.getElementById('download-btn');
+    const loadingOverlay = document.getElementById('loading-overlay');
+    const loadingMessage = document.getElementById('loading-message');
 
     // 削除したいメタデータのName IDリスト
     const DELETE_IDS = [0, 3, 5, 7, 8, 9, 10, 11, 12, 13, 14];
@@ -167,7 +207,7 @@
     });
 
     dropZone.addEventListener('click', () => fileInput.click());
-    
+
     fileInput.addEventListener('change', (e) => handleFiles(e.target.files));
     dropZone.addEventListener('drop', (e) => handleFiles(e.dataTransfer.files));
 
@@ -185,13 +225,16 @@
 
     async function handleFiles(files) {
         if (files.length === 0) return;
-        
+
+        loadingMessage.textContent = `合計 ${files.length} 個のフォントを処理中...`;
+        loadingOverlay.style.display = 'flex';
+
         if (currentZipUrl) {
             URL.revokeObjectURL(currentZipUrl);
             currentZipUrl = null;
         }
         downloadActionArea.style.display = 'none';
-        statusArea.innerHTML = ''; 
+        statusArea.innerHTML = '';
 
         const zip = new JSZip();
         let successCount = 0;
@@ -200,10 +243,11 @@
         showLog(`⏳ 合計 ${files.length} 個のフォントのクリーニングを開始するヨ...`, 'processing', mainLogId);
         await sleep(300);
 
-        for (const file of Array.from(files)) {
+        for (const [index, file] of Array.from(files).entries()) {
             const subLogId = 'log-' + Math.random().toString(36).substr(2, 9);
-            
+
             // ハッキリ「処理中」を表示させるヨ
+            loadingMessage.textContent = `処理中... (${index + 1} / ${files.length}) ${file.name}`;
             showLog(`⏳ ${file.name} を処理中... メタデータを削除しています...`, 'processing', subLogId);
             await sleep(250); // 画面に「処理中」を認知させるためのウェイト
 
@@ -215,7 +259,7 @@
                 if (font.names) {
                     for (const key in font.names) {
                         if (DELETE_IDS.includes(Number(key))) {
-                            font.names[key] = { en: '' }; 
+                            font.names[key] = { en: '' };
                         }
                     }
                 }
@@ -245,15 +289,16 @@
         }
 
         if (successCount > 0) {
+            loadingMessage.textContent = 'ZIPファイルを作成中...';
             updateLog(mainLogId, `📦 クリーニング済みフォントのZIPファイルを生成しているヨ...`, 'processing');
             await sleep(300);
-            
+
             const timestamp = Math.floor(Date.now() / 1000);
             const zipBlob = await zip.generateAsync({ type: 'blob' });
-            
+
             currentZipUrl = URL.createObjectURL(zipBlob);
             currentZipName = `fonts_cleaned_${timestamp}.zip`;
-            
+
             const a = document.createElement('a');
             a.href = currentZipUrl;
             a.download = currentZipName;
@@ -268,6 +313,8 @@
         } else {
             updateLog(mainLogId, `❌ 正常に処理できたフォントがなかったヨ。`, 'error');
         }
+
+        loadingOverlay.style.display = 'none';
     }
 
     function readFileAsArrayBuffer(file) {
