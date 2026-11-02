@@ -7,118 +7,186 @@
     <script src="https://cdn.jsdelivr.net/npm/opentype.js@1.3.4/dist/opentype.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
     <style>
+        :root {
+            color-scheme: light;
+            --ink: #20242a;
+            --muted: #737b85;
+            --line: #e3e6e9;
+            --surface: #ffffff;
+            --page: #f6f7f8;
+            --accent: #315f86;
+            --accent-soft: #edf3f7;
+            --success: #286747;
+            --success-bg: #eff7f2;
+            --error: #a33d36;
+            --error-bg: #fbf1f0;
+        }
+        * { box-sizing: border-box; }
         body {
-            font-family: 'Helvetica Neue', Arial, sans-serif;
-            background-color: #f5f7fa;
-            color: #333;
             margin: 0;
-            padding: 40px 20px;
-            display: flex;
-            justify-content: center;
+            min-height: 100vh;
+            padding: 64px 24px;
+            background: var(--page);
+            color: var(--ink);
+            font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", "Yu Gothic", "Hiragino Kaku Gothic ProN", Meiryo, sans-serif;
+            -webkit-font-smoothing: antialiased;
         }
         .container {
-            max-width: 650px;
             width: 100%;
-            background: #fff;
-            padding: 30px;
-            border-radius: 12px;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+            max-width: 720px;
+            margin: 0 auto;
+            padding: 42px 44px 36px;
+            background: var(--surface);
+            border: 1px solid var(--line);
+            border-radius: 8px;
+            box-shadow: 0 8px 28px rgba(25, 35, 45, 0.045);
+        }
+        .eyebrow {
+            margin: 0 0 12px;
+            color: var(--muted);
+            font-size: 11px;
+            font-weight: 650;
+            letter-spacing: .14em;
+            text-transform: uppercase;
         }
         h1 {
-            font-size: 24px;
-            margin-bottom: 10px;
-            text-align: center;
-            color: #2c3e50;
+            margin: 0;
+            font-size: clamp(23px, 4vw, 29px);
+            line-height: 1.3;
+            font-weight: 650;
+            letter-spacing: -.035em;
         }
-        p.desc {
-            font-size: 14px;
-            color: #7f8c8d;
-            text-align: center;
-            margin-bottom: 30px;
+        .desc {
+            margin: 13px 0 30px;
+            color: var(--muted);
+            font-size: 13px;
+            line-height: 1.9;
+        }
+        .section-label {
+            display: block;
+            margin: 0 0 10px;
+            color: #454c54;
+            font-size: 12px;
+            font-weight: 650;
         }
         .drop-zone {
-            border: 2px dashed #3498db;
-            border-radius: 8px;
-            padding: 40px 20px;
+            display: flex;
+            min-height: 190px;
+            padding: 30px 20px;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            border: 1px dashed #b9c2ca;
+            border-radius: 6px;
+            background: #fafbfc;
             text-align: center;
             cursor: pointer;
-            background-color: #f0f8ff;
-            transition: background-color 0.2s, border-color 0.2s;
-            margin-bottom: 25px;
+            transition: border-color .18s ease, background .18s ease;
         }
         .drop-zone:hover, .drop-zone.dragover {
-            background-color: #e1f0fa;
-            border-color: #2980b9;
+            border-color: var(--accent);
+            background: var(--accent-soft);
         }
-        .drop-zone p {
+        .upload-mark {
+            display: grid;
+            width: 38px;
+            height: 38px;
+            margin-bottom: 15px;
+            place-items: center;
+            border: 1px solid #dce2e7;
+            border-radius: 50%;
+            color: var(--accent);
+            background: white;
+        }
+        .upload-mark svg { width: 18px; height: 18px; }
+        .drop-title {
             margin: 0;
-            font-size: 16px;
-            color: #34495e;
-            font-weight: bold;
+            color: var(--ink);
+            font-size: 14px;
+            font-weight: 600;
         }
-        .drop-zone span {
-            display: block;
-            font-size: 12px;
-            color: #95a5a6;
-            margin-top: 8px;
+        .drop-hint {
+            margin: 8px 0 0;
+            color: var(--muted);
+            font-size: 11px;
         }
-        #file-input {
-            display: none;
-        }
-        /* ダウンロードエリアのスタイル */
+        #file-input { display: none; }
         .download-action-area {
-            margin: 20px 0;
-            text-align: center;
             display: none;
+            margin-top: 18px;
         }
         .download-btn {
-            background-color: #2ecc71;
+            width: 100%;
+            min-height: 44px;
+            padding: 11px 18px;
+            border: 1px solid var(--accent);
+            border-radius: 5px;
+            background: var(--accent);
             color: white;
-            border: none;
-            padding: 12px 30px;
-            font-size: 16px;
-            font-weight: bold;
-            border-radius: 6px;
+            font: inherit;
+            font-size: 13px;
+            font-weight: 600;
             cursor: pointer;
-            box-shadow: 0 4px 6px rgba(46, 204, 113, 0.2);
-            transition: background-color 0.2s, transform 0.1s;
+            transition: background .18s ease, border-color .18s ease;
         }
-        .download-btn:hover {
-            background-color: #27ae60;
-        }
-        .download-btn:active {
-            transform: scale(0.98);
+        .download-btn:hover { background: #264d6e; border-color: #264d6e; }
+        .download-btn:focus-visible, .drop-zone:focus-visible {
+            outline: 3px solid rgba(49, 95, 134, .22);
+            outline-offset: 3px;
         }
         .status-area {
-            margin-top: 20px;
-            max-height: 250px;
+            display: none;
+            margin-top: 28px;
+            padding-top: 22px;
+            border-top: 1px solid var(--line);
+            max-height: 280px;
             overflow-y: auto;
         }
+        .status-area.has-items { display: block; }
+        .status-heading {
+            margin: 0 0 12px;
+            color: var(--muted);
+            font-size: 10px;
+            font-weight: 700;
+            letter-spacing: .12em;
+        }
         .log-msg {
-            padding: 12px;
-            border-radius: 6px;
-            font-size: 14px;
-            margin-bottom: 10px;
-            line-height: 1.4;
+            display: flex;
+            gap: 10px;
+            align-items: flex-start;
+            margin: 0 0 8px;
+            padding: 11px 13px;
+            border: 1px solid var(--line);
+            border-radius: 4px;
+            color: #4b535c;
+            background: #fbfcfc;
+            font-size: 12px;
+            line-height: 1.65;
+            overflow-wrap: anywhere;
         }
-        .log-msg.processing {
-            background-color: #ebf5fb;
-            color: #2980b9;
-            border: 1px solid #a9cce3;
-            font-weight: bold;
+        .log-msg::before {
+            content: "";
+            width: 6px;
+            height: 6px;
+            margin-top: 6px;
+            flex: 0 0 6px;
+            border-radius: 50%;
+            background: #9aa3ac;
         }
+        .log-msg.processing::before { background: var(--accent); }
         .log-msg.success {
-            background-color: #e8f8f5;
-            color: #27ae60;
-            border: 1px solid #a3e4d7;
+            border-color: #dcebe1;
+            color: var(--success);
+            background: var(--success-bg);
         }
+        .log-msg.success::before { background: var(--success); }
         .log-msg.error {
-            background-color: #fdebd0;
-            color: #e67e22;
-            border: 1px solid #fadbd8;
+            border-color: #f0ddda;
+            color: var(--error);
+            background: var(--error-bg);
         }
+        .log-msg.error::before { background: var(--error); }
 
-        /* 全体のローディング表示 */
         .loading-overlay {
             position: fixed;
             inset: 0;
@@ -127,65 +195,80 @@
             align-items: center;
             justify-content: center;
             flex-direction: column;
-            gap: 16px;
-            background: rgba(245, 247, 250, 0.82);
-            backdrop-filter: blur(4px);
+            gap: 14px;
+            background: rgba(246, 247, 248, .86);
+            backdrop-filter: blur(3px);
         }
         .loading-spinner {
-            width: 48px;
-            height: 48px;
-            border: 5px solid #dce6ef;
-            border-top-color: #3498db;
+            width: 34px;
+            height: 34px;
+            border: 3px solid #dce2e7;
+            border-top-color: var(--accent);
             border-radius: 50%;
-            animation: loading-spin 0.8s linear infinite;
+            animation: loading-spin .8s linear infinite;
         }
         .loading-message {
-            color: #2c3e50;
-            font-size: 15px;
-            font-weight: bold;
+            max-width: min(80vw, 520px);
+            color: #3c4650;
+            font-size: 12px;
+            font-weight: 600;
+            text-align: center;
+            overflow-wrap: anywhere;
         }
-        @keyframes loading-spin {
-            to { transform: rotate(360deg); }
+        @keyframes loading-spin { to { transform: rotate(360deg); } }
+        @media (max-width: 600px) {
+            body { padding: 24px 14px; }
+            .container { padding: 30px 22px 26px; }
+            .drop-zone { min-height: 170px; }
         }
         @media (prefers-reduced-motion: reduce) {
-            .loading-spinner { animation-duration: 1.8s; }
+            *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }
         }
     </style>
 </head>
 <body>
-
-<div class="container">
+<main class="container">
+    <p class="eyebrow">FONT UTILITY / 01</p>
     <h1>Font Metadata Cleaner</h1>
-    <p class="desc">名前をそのまま残して、著作権情報やメーカーなどのメタデータだけを削除し、一括ZIP出力します。</p>
+    <p class="desc">フォントの名称を維持したまま、指定したメタデータを削除します。複数のファイルをまとめて処理できます。</p>
 
-    <div class="drop-zone" id="drop-zone">
-        <p>複数のフォントファイルをドロップするか、ここをクリック</p>
-        <span>対応フォーマット: .ttf / .otf</span>
+    <label class="section-label" for="file-input">フォントファイル</label>
+    <div class="drop-zone" id="drop-zone" role="button" tabindex="0" aria-label="フォントファイルを選択またはドロップ">
+        <div class="upload-mark" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 16V4"></path><path d="m7 9 5-5 5 5"></path><path d="M4 16v4h16v-4"></path>
+            </svg>
+        </div>
+        <p class="drop-title">ファイルをドロップ</p>
+        <p class="drop-hint">またはクリックして選択　／　TTF・OTF対応</p>
         <input type="file" id="file-input" accept=".ttf,.otf" multiple>
     </div>
 
     <div class="download-action-area" id="download-action-area">
-        <button class="download-btn" id="download-btn">📦 ZIPを再ダウンロードする</button>
+        <button class="download-btn" id="download-btn">ZIPファイルを再ダウンロード</button>
     </div>
 
-    <div class="status-area" id="status-area"></div>
-</div>
+    <section class="status-area" id="status-area" aria-live="polite">
+        <p class="status-heading">処理状況</p>
+        <div id="status-list"></div>
+    </section>
+</main>
 
 <div class="loading-overlay" id="loading-overlay" role="status" aria-live="polite" aria-label="処理中">
     <div class="loading-spinner" aria-hidden="true"></div>
-    <div class="loading-message" id="loading-message">フォントを処理中...</div>
+    <div class="loading-message" id="loading-message">フォントを処理しています</div>
 </div>
 
 <script>
     const dropZone = document.getElementById('drop-zone');
     const fileInput = document.getElementById('file-input');
     const statusArea = document.getElementById('status-area');
+    const statusList = document.getElementById('status-list');
     const downloadActionArea = document.getElementById('download-action-area');
     const downloadBtn = document.getElementById('download-btn');
     const loadingOverlay = document.getElementById('loading-overlay');
     const loadingMessage = document.getElementById('loading-message');
 
-    // 削除したいメタデータのName IDリスト
     const DELETE_IDS = [0, 3, 5, 7, 8, 9, 10, 11, 12, 13, 14];
     const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 
@@ -193,40 +276,55 @@
     let currentZipName = "";
 
     ['dragenter', 'dragover'].forEach(eventName => {
-        dropZone.addEventListener(eventName, (e) => {
+        dropZone.addEventListener(eventName, e => {
             e.preventDefault();
             dropZone.classList.add('dragover');
-        }, false);
+        });
     });
 
     ['dragleave', 'drop'].forEach(eventName => {
-        dropZone.addEventListener(eventName, (e) => {
+        dropZone.addEventListener(eventName, e => {
             e.preventDefault();
             dropZone.classList.remove('dragover');
-        }, false);
+        });
     });
 
     dropZone.addEventListener('click', () => fileInput.click());
-
-    fileInput.addEventListener('change', (e) => handleFiles(e.target.files));
-    dropZone.addEventListener('drop', (e) => handleFiles(e.dataTransfer.files));
-
-    // 再ダウンロードボタンの処理
-    downloadBtn.addEventListener('click', () => {
-        if (currentZipUrl) {
-            const a = document.createElement('a');
-            a.href = currentZipUrl;
-            a.download = currentZipName;
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
+    dropZone.addEventListener('keydown', e => {
+        if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            fileInput.click();
         }
     });
 
-    async function handleFiles(files) {
-        if (files.length === 0) return;
+    fileInput.addEventListener('change', e => {
+        handleFiles(e.target.files);
+        fileInput.value = '';
+    });
+    dropZone.addEventListener('drop', e => handleFiles(e.dataTransfer.files));
 
-        loadingMessage.textContent = `合計 ${files.length} 個のフォントを処理中...`;
+    downloadBtn.addEventListener('click', () => {
+        if (!currentZipUrl) return;
+        const a = document.createElement('a');
+        a.href = currentZipUrl;
+        a.download = currentZipName;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+    });
+
+    async function handleFiles(files) {
+        if (!files || files.length === 0) return;
+
+        const selectedFiles = Array.from(files).filter(file => /\.(ttf|otf)$/i.test(file.name));
+        if (selectedFiles.length === 0) {
+            statusList.innerHTML = '';
+            statusArea.classList.add('has-items');
+            showLog('TTFまたはOTF形式のファイルを選択してください。', 'error', 'input-error');
+            return;
+        }
+
+        loadingMessage.textContent = `フォントを処理しています（全 ${selectedFiles.length} 件）`;
         loadingOverlay.style.display = 'flex';
 
         if (currentZipUrl) {
@@ -234,94 +332,88 @@
             currentZipUrl = null;
         }
         downloadActionArea.style.display = 'none';
-        statusArea.innerHTML = '';
+        statusList.innerHTML = '';
+        statusArea.classList.add('has-items');
 
         const zip = new JSZip();
         let successCount = 0;
-
         const mainLogId = 'main-log';
-        showLog(`⏳ 合計 ${files.length} 個のフォントのクリーニングを開始するヨ...`, 'processing', mainLogId);
-        await sleep(300);
 
-        for (const [index, file] of Array.from(files).entries()) {
-            const subLogId = 'log-' + Math.random().toString(36).substr(2, 9);
+        showLog(`処理を開始しました　対象 ${selectedFiles.length} 件`, 'processing', mainLogId);
+        await sleep(150);
 
-            // ハッキリ「処理中」を表示させるヨ
-            loadingMessage.textContent = `処理中... (${index + 1} / ${files.length}) ${file.name}`;
-            showLog(`⏳ ${file.name} を処理中... メタデータを削除しています...`, 'processing', subLogId);
-            await sleep(250); // 画面に「処理中」を認知させるためのウェイト
-
-            try {
-                const arrayBuffer = await readFileAsArrayBuffer(file);
-                const font = opentype.parse(arrayBuffer);
-
-                // 1. nameテーブル（メタデータ）の削除処理
-                if (font.names) {
-                    for (const key in font.names) {
-                        if (DELETE_IDS.includes(Number(key))) {
-                            font.names[key] = { en: '' };
-                        }
-                    }
-                }
-
-                // 2. headテーブルのタイムスタンプ初期化
-                if (font.tables && font.tables.head) {
-                    font.tables.head.created = 0;
-                    font.tables.head.modified = 0;
-                }
-
-                const lastDot = file.name.lastIndexOf('.');
-                const baseName = file.name.substring(0, lastDot);
-                const ext = file.name.substring(lastDot);
-                const outputFilename = `${baseName}_name_kept${ext}`;
-
-                const fontBuffer = font.toArrayBuffer();
-                zip.file(outputFilename, fontBuffer);
-
-                updateLog(subLogId, `✅ 成功: ${file.name} の著作権情報を削除したヨ。`, 'success');
-                successCount++;
+        try {
+            for (const [index, file] of selectedFiles.entries()) {
+                const subLogId = 'log-' + index;
+                loadingMessage.textContent = `処理中　${index + 1} / ${selectedFiles.length}　${file.name}`;
+                showLog(`${file.name} を処理しています`, 'processing', subLogId);
                 await sleep(100);
 
-            } catch (err) {
-                updateLog(subLogId, `❌ エラー (${file.name}): ${err.message}`, 'error');
-                console.error(err);
+                try {
+                    const arrayBuffer = await readFileAsArrayBuffer(file);
+                    const font = opentype.parse(arrayBuffer);
+
+                    if (font.names) {
+                        for (const key in font.names) {
+                            if (DELETE_IDS.includes(Number(key))) {
+                                font.names[key] = { en: '' };
+                            }
+                        }
+                    }
+
+                    if (font.tables && font.tables.head) {
+                        font.tables.head.created = 0;
+                        font.tables.head.modified = 0;
+                    }
+
+                    const lastDot = file.name.lastIndexOf('.');
+                    const baseName = file.name.substring(0, lastDot);
+                    const ext = file.name.substring(lastDot);
+                    const outputFilename = `${baseName}_name_kept${ext}`;
+
+                    zip.file(outputFilename, font.toArrayBuffer());
+                    updateLog(subLogId, `完了　${file.name}`, 'success');
+                    successCount++;
+                } catch (err) {
+                    updateLog(subLogId, `失敗　${file.name}：${err.message}`, 'error');
+                    console.error(err);
+                }
             }
+
+            if (successCount > 0) {
+                loadingMessage.textContent = 'ZIPファイルを作成しています';
+                updateLog(mainLogId, '処理したフォントをZIPにまとめています', 'processing');
+
+                const timestamp = Math.floor(Date.now() / 1000);
+                const zipBlob = await zip.generateAsync({ type: 'blob' });
+                currentZipUrl = URL.createObjectURL(zipBlob);
+                currentZipName = `fonts_cleaned_${timestamp}.zip`;
+
+                const a = document.createElement('a');
+                a.href = currentZipUrl;
+                a.download = currentZipName;
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
+
+                downloadActionArea.style.display = 'block';
+                updateLog(mainLogId, `完了　${successCount} 件のフォントをZIPに出力しました`, 'success');
+            } else {
+                updateLog(mainLogId, '処理できるフォントがありませんでした', 'error');
+            }
+        } catch (err) {
+            updateLog(mainLogId, `処理中にエラーが発生しました：${err.message}`, 'error');
+            console.error(err);
+        } finally {
+            loadingOverlay.style.display = 'none';
         }
-
-        if (successCount > 0) {
-            loadingMessage.textContent = 'ZIPファイルを作成中...';
-            updateLog(mainLogId, `📦 クリーニング済みフォントのZIPファイルを生成しているヨ...`, 'processing');
-            await sleep(300);
-
-            const timestamp = Math.floor(Date.now() / 1000);
-            const zipBlob = await zip.generateAsync({ type: 'blob' });
-
-            currentZipUrl = URL.createObjectURL(zipBlob);
-            currentZipName = `fonts_cleaned_${timestamp}.zip`;
-
-            const a = document.createElement('a');
-            a.href = currentZipUrl;
-            a.download = currentZipName;
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-
-            // 再ダウンロードボタンを表示するヨ
-            downloadActionArea.style.display = 'block';
-
-            updateLog(mainLogId, `🎉 完了！自動ダウンロードをキャンセルした場合は、上のボタンから再取得してネ！`, 'success');
-        } else {
-            updateLog(mainLogId, `❌ 正常に処理できたフォントがなかったヨ。`, 'error');
-        }
-
-        loadingOverlay.style.display = 'none';
     }
 
     function readFileAsArrayBuffer(file) {
         return new Promise((resolve, reject) => {
             const reader = new FileReader();
-            reader.onload = (e) => resolve(e.target.result);
-            reader.onerror = (e) => reject(new Error("ファイルの読み込みに失敗しました"));
+            reader.onload = e => resolve(e.target.result);
+            reader.onerror = () => reject(new Error('ファイルの読み込みに失敗しました'));
             reader.readAsArrayBuffer(file);
         });
     }
@@ -330,19 +422,17 @@
         const div = document.createElement('div');
         div.id = id;
         div.className = `log-msg ${type}`;
-        div.innerHTML = message;
-        statusArea.appendChild(div);
+        div.textContent = message;
+        statusList.appendChild(div);
         statusArea.scrollTop = statusArea.scrollHeight;
     }
 
     function updateLog(id, message, type) {
         const div = document.getElementById(id);
-        if (div) {
-            div.className = `log-msg ${type}`;
-            div.innerHTML = message;
-        }
+        if (!div) return;
+        div.className = `log-msg ${type}`;
+        div.textContent = message;
     }
 </script>
-
 </body>
 </html>
